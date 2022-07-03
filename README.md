@@ -1,1 +1,1 @@
-# CHIP-8_olcPixelGameEngine
+# CHIP-8 olcPixelGameEngine
