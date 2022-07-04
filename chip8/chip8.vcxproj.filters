@@ -21,6 +21,9 @@
     <ClInclude Include="engine.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="lib\miniaudio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

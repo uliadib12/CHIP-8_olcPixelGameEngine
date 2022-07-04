@@ -1,10 +1,13 @@
 #pragma once
 #define OLC_PGE_APPLICATION
+#define MINIAUDIO_IMPLEMENTATION
 #include <iostream>
 #include <fstream>
 #include <chrono>
 #include <random>
+#include <math.h> 
 #include <lib/olcPixelGameEngine.h>
+#include <lib/miniaudio.h>
 
 const unsigned int START_ADDRESS = 0x200;
 const unsigned int FONTSET_START_ADDRESS = 0x50;
@@ -20,6 +23,10 @@ class Engine : public olc::PixelGameEngine
 	float clock_time;
 	float clock_speed;
 	void setKey();
+
+	ma_result result;
+	ma_engine engine;
+
 public:
 	uint8_t keypad[16];
 	uint32_t video[64 * 32];
@@ -284,6 +291,13 @@ Engine::Engine(const char* filename,float clock_speed = 500, float clock_time = 
 	for (int i = 0; i < 16; i++) {
 		keypad[i] = 0;
 	}
+
+	result = ma_engine_init(NULL, &engine);
+
+	if (result != MA_SUCCESS) {
+		printf("Failed to initialize audio engine.");
+	}
+
 }
 
 bool Engine::OnUserUpdate(float fElapsedTime)
@@ -292,6 +306,8 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 	last_speed_clock += fElapsedTime;
 
 	setKey();
+
+	Clear(olc::DARK_BLUE);
 
 	if (last_speed_clock > this->clock_speed) {
 		/*std::cout << "speed_clock = " << last_speed_clock << "\n";*/
@@ -307,14 +323,15 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 		}
 		if (interpreter->soundTimer > 0) {
 			--interpreter->soundTimer;
+			ma_engine_play_sound(&engine, "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\SOUND\\beep.mp3",NULL);
 		}
 	}
 
 	//render to screen
-	for (int y = 0; y < ScreenHeight(); y++) {
-		for (int x = 0; x < ScreenWidth(); x++) {
+	for (int y = 0; y < VIDEO_HEIGHT; y++) {
+		for (int x = 0; x < VIDEO_WIDTH; x++) {
 
-			int index = y * ScreenWidth() + x;
+			int index = y * VIDEO_WIDTH + x;
 			uint32_t pixel = video[index];
 			Draw(olc::vd2d(x, y), pixel == 0x0 ? olc::BLACK : olc::WHITE);
 
