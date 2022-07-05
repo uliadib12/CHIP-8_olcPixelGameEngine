@@ -4,8 +4,9 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <queue>
 #include <random>
-#include <math.h> 
+#include <math.h>
 #include <lib/olcPixelGameEngine.h>
 #include <lib/miniaudio.h>
 
@@ -17,6 +18,10 @@ const unsigned int VIDEO_WIDTH = 64;
 class EngineSetting
 {
 public:
+	int clock_speed;
+	std::string gameName;
+	bool debugMode = true;
+
 	EngineSetting() {};
 	~EngineSetting() {};
 
@@ -29,6 +34,7 @@ class Engine : public olc::PixelGameEngine
 {
 	friend class Chip8;
 	Chip8* interpreter;
+	EngineSetting engine_setting;
 	float last_speed_clock;
 	float last_time_clock;
 	float clock_time;
@@ -47,6 +53,21 @@ class Engine : public olc::PixelGameEngine
 public:
 	Engine(const char* filename, float clock_speed, float clock_time);
 	~Engine();
+
+private:
+	std::string intToHex(int i) {
+		std::ostringstream ss;
+		ss << std::hex << i;
+		std::string result = ss.str();
+
+		std::string hex;
+		for (int i = 0; i < 4 - (int)result.length(); i++) {
+			hex.append("0");
+		}
+		hex.append(result);
+
+		return hex;
+	}
 };
 
 Engine::~Engine()
@@ -164,7 +185,7 @@ class Chip8
 	Chip8(Engine* eng);
 	~Chip8();
 	void Cycle();
-	bool LoadROM(const char* filename);
+	bool LoadROM();
 
 	std::default_random_engine randGen;
 	std::uniform_int_distribution<unsigned int> randByte;
@@ -258,9 +279,11 @@ Chip8::~Chip8()
 {
 }
 
-bool Chip8::LoadROM(const char* filename)
+bool Chip8::LoadROM()
 {
-	std::ifstream file(filename, std::ios::binary | std::ios::ate);
+	std::string pathGame = "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\ROM\\";
+	pathGame.append(engine->engine_setting.gameName);
+	std::ifstream file(pathGame, std::ios::binary | std::ios::ate);
 	
 	if (file.is_open()) {
 		file.seekg(0, file.end);
@@ -282,14 +305,17 @@ bool Chip8::LoadROM(const char* filename)
 	return false;
 }
 
-Engine::Engine(const char* filename,float clock_speed = 500, float clock_time = 60) : interpreter(new Chip8(this))
+Engine::Engine(const char* filename = "TICTAC",float clock_speed = 500, float clock_time = 60) : interpreter(new Chip8(this))
 {
 	sAppName = "Chip-8 Emu";
+
+	engine_setting.clock_speed = (int)clock_speed;
+	engine_setting.gameName = filename;
 
 	this->clock_speed = 1.0f / clock_speed;
 	this->clock_time = 1.0f / clock_time;
 
-	if (interpreter->LoadROM(filename)) {
+	if (interpreter->LoadROM()) {
 		std::cout << "ROM OK\n";
 	}
 
@@ -315,10 +341,11 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 
 	Clear(olc::DARK_BLUE);
 
+
 	if (last_speed_clock > this->clock_speed) {
 		/*std::cout << "speed_clock = " << last_speed_clock << "\n";*/
-		last_speed_clock = 0;
 		interpreter->Cycle();
+		last_speed_clock = 0;
 	}
 
 	if (last_time_clock > this->clock_time) {
@@ -332,12 +359,36 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 			ma_engine_play_sound(&engine_ma, "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\SOUND\\beep.mp3",NULL);
 		}
 	}
-	//debug mode
 
+	int scale = engine_setting.debugMode ? 1 : 2;
+
+	//debug mode
+	const float padx = 2;
+	const float pady = 2;
+	DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, (0 * scale) + pady), "CLOCK SPEED:" + std::to_string(engine_setting.clock_speed), olc::WHITE,olc::vd2d(0.4f,0.4f));
+
+#pragma region REGISTER
+	for (int i = 0; i < 16; i++) {
+		std::ostringstream ss;
+		ss << std::hex << i;
+		std::string result = ss.str();
+		std::string str = "R-";
+		str.append(result);
+		if (i < 8) {
+			DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * i + 4)), str.append(":") + intToHex(interpreter->regis[i]), olc::WHITE, olc::vd2d(0.3f, 0.3f));
+		}
+		else {
+			DrawStringDecal(olc::vd2d(((VIDEO_WIDTH * scale) + padx) + 30, ((0 * scale) + pady) + (4 * i + 4) - (4 * 8)), str.append(":") + intToHex(interpreter->regis[i]), olc::WHITE, olc::vd2d(0.3f, 0.3f));
+		}
+	}
+	DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * 8 + 4)), "DT:" + std::to_string(interpreter->delayTimer), olc::WHITE, olc::vd2d(0.3f, 0.3f));
+	DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx + 30, ((0 * scale) + pady) + (4 * 8 + 4)), "ST:" + std::to_string(interpreter->soundTimer), olc::WHITE, olc::vd2d(0.3f, 0.3f));
+#pragma endregion
+
+
+	DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * (0 + 9) + 5)),  "S", olc::WHITE, olc::vd2d(0.3f, 0.3f));
 
 	//render to screen
-
-	int scale = 2;
 
 	//resize
 	int *temp = new int[(VIDEO_WIDTH * scale) * (VIDEO_HEIGHT * scale)];
@@ -602,7 +653,7 @@ void Chip8::OP_Dxyn() {
 				if (*screenPixel == 0xFFFFFFFF) {
 					regis[0xF] = 1;
 				}
-
+				if(!((yPos + row) * VIDEO_WIDTH + (xPos + col) > ((64 * 32) - 1) && (yPos + row) * VIDEO_WIDTH + (xPos + col) < 0))
 				*screenPixel ^= 0xFFFFFFFF;
 			}
 		}
