@@ -14,9 +14,20 @@ const unsigned int FONTSET_START_ADDRESS = 0x50;
 const unsigned int VIDEO_HEIGHT = 32;
 const unsigned int VIDEO_WIDTH = 64;
 
+class EngineSetting
+{
+public:
+	EngineSetting() {};
+	~EngineSetting() {};
+
+private:
+
+};
+
 class Chip8;
 class Engine : public olc::PixelGameEngine
 {
+	friend class Chip8;
 	Chip8* interpreter;
 	float last_speed_clock;
 	float last_time_clock;
@@ -24,19 +35,18 @@ class Engine : public olc::PixelGameEngine
 	float clock_speed;
 	void setKey();
 
-	ma_result result;
-	ma_engine engine;
+	ma_result result_ma;
+	ma_engine engine_ma;
+	
+	uint8_t keypad[16]{};
+	uint32_t video[64 * 32]{};
 
-public:
-	uint8_t keypad[16];
-	uint32_t video[64 * 32];
-
-	Engine(const char* filename, float clock_speed, float clock_time);
-	~Engine();
-
-public:
 	bool OnUserCreate() override;
 	bool OnUserUpdate(float fElapsedTime) override;
+
+public:
+	Engine(const char* filename, float clock_speed, float clock_time);
+	~Engine();
 };
 
 Engine::~Engine()
@@ -72,6 +82,7 @@ bool Engine::OnUserCreate()
 class Engine;
 class Chip8
 {
+	friend class Engine;
 	Engine* engine;
 	uint8_t memory[4096];
 	uint16_t pc;
@@ -81,7 +92,6 @@ class Chip8
 	uint8_t sp = 0;
 	uint16_t opcode = 0x0;
 
-private:
 #pragma region INSTC
 	void OP_NULL();
 	void OP_1nnn();
@@ -148,13 +158,9 @@ private:
 
 #pragma endregion
 
-	
-
-public:
 	uint8_t delayTimer = 0x0;
 	uint8_t soundTimer = 0x0;
 
-public:
 	Chip8(Engine* eng);
 	~Chip8();
 	void Cycle();
@@ -292,9 +298,9 @@ Engine::Engine(const char* filename,float clock_speed = 500, float clock_time = 
 		keypad[i] = 0;
 	}
 
-	result = ma_engine_init(NULL, &engine);
+	result_ma = ma_engine_init(NULL, &engine_ma);
 
-	if (result != MA_SUCCESS) {
+	if (result_ma != MA_SUCCESS) {
 		printf("Failed to initialize audio engine.");
 	}
 
@@ -323,20 +329,41 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 		}
 		if (interpreter->soundTimer > 0) {
 			--interpreter->soundTimer;
-			ma_engine_play_sound(&engine, "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\SOUND\\beep.mp3",NULL);
+			ma_engine_play_sound(&engine_ma, "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\SOUND\\beep.mp3",NULL);
+		}
+	}
+	//debug mode
+
+
+	//render to screen
+
+	int scale = 2;
+
+	//resize
+	int *temp = new int[(VIDEO_WIDTH * scale) * (VIDEO_HEIGHT * scale)];
+	double x_ratio = VIDEO_WIDTH / (double)(VIDEO_WIDTH * scale);
+	double y_ratio = VIDEO_HEIGHT / (double)(VIDEO_HEIGHT * scale);
+	double px, py;
+	for (int i = 0; i < (int)(VIDEO_HEIGHT * scale); i++) {
+		for (int j = 0; j < (int)(VIDEO_WIDTH * scale); j++) {
+			px = std::floor(j * x_ratio);
+			py = std::floor(i * y_ratio);
+			temp[(i * (VIDEO_WIDTH * scale)) + j] = video[(int)((py * VIDEO_WIDTH) + px)];
 		}
 	}
 
-	//render to screen
-	for (int y = 0; y < VIDEO_HEIGHT; y++) {
-		for (int x = 0; x < VIDEO_WIDTH; x++) {
+	//draw
+	for (int y = 0; y < (int)(VIDEO_HEIGHT * scale); y++) {
+		for (int x = 0; x < (int)(VIDEO_WIDTH * scale); x++) {
 
-			int index = y * VIDEO_WIDTH + x;
-			uint32_t pixel = video[index];
+			int index = y * VIDEO_WIDTH * scale + x;
+			uint32_t pixel = temp[index];
 			Draw(olc::vd2d(x, y), pixel == 0x0 ? olc::BLACK : olc::WHITE);
 
 		}
 	}
+
+	delete[] temp;
 
 	return true;
 }
