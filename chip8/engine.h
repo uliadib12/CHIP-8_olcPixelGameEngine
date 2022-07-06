@@ -4,7 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
-#include <queue>
+#include <deque>
+#include <vector>
 #include <random>
 #include <math.h>
 #include <lib/olcPixelGameEngine.h>
@@ -15,12 +16,46 @@ const unsigned int FONTSET_START_ADDRESS = 0x50;
 const unsigned int VIDEO_HEIGHT = 32;
 const unsigned int VIDEO_WIDTH = 64;
 
+class SettingMenu
+{
+public:
+	int index = 0;
+	std::string gameName;
+	bool debugStatus;
+	std::deque<std::string> menuList {"Resume","DEBUG MODE:","Game:"};
+	std::vector<std::vector<std::string>> subList{ 
+		std::vector<std::string>{"ON ", "OFF"}};
+
+	std::string getSubList(int index) {
+		if (index == 1) {
+			std::string ret;
+			debugStatus ? ret = subList.at(0).at(0) : ret = subList.at(0).at(1);
+			return ret;
+		}
+		if (index == 2) {
+			std::string ret;
+			ret = gameName;
+			return ret;
+		}
+		return "";
+	}
+
+	SettingMenu() {};
+	~SettingMenu() {};
+
+private:
+
+};
+
 class EngineSetting
 {
 public:
+	bool isPause = false;
 	int clock_speed;
 	std::string gameName;
-	bool debugMode = true;
+	bool debugMode = false;
+	std::deque<uint16_t> pc;
+	std::deque<uint16_t> addr;
 
 	EngineSetting() {};
 	~EngineSetting() {};
@@ -35,6 +70,7 @@ class Engine : public olc::PixelGameEngine
 	friend class Chip8;
 	Chip8* interpreter;
 	EngineSetting engine_setting;
+	SettingMenu setting;
 	float last_speed_clock;
 	float last_time_clock;
 	float clock_time;
@@ -55,13 +91,13 @@ public:
 	~Engine();
 
 private:
-	std::string intToHex(int i) {
+	std::string intToHex(int i, int size = 2) {
 		std::ostringstream ss;
 		ss << std::hex << i;
 		std::string result = ss.str();
 
 		std::string hex;
-		for (int i = 0; i < 4 - (int)result.length(); i++) {
+		for (int i = 0; i < size - (int)result.length(); i++) {
 			hex.append("0");
 		}
 		hex.append(result);
@@ -272,7 +308,6 @@ Chip8::Chip8(Engine* eng)
 		memory[FONTSET_START_ADDRESS + i] = fontset[i];
 	}
 
-
 }
 
 Chip8::~Chip8()
@@ -311,6 +346,8 @@ Engine::Engine(const char* filename = "TICTAC",float clock_speed = 500, float cl
 
 	engine_setting.clock_speed = (int)clock_speed;
 	engine_setting.gameName = filename;
+	setting.debugStatus = engine_setting.debugMode;
+	setting.gameName = engine_setting.gameName;
 
 	this->clock_speed = 1.0f / clock_speed;
 	this->clock_time = 1.0f / clock_time;
@@ -334,88 +371,167 @@ Engine::Engine(const char* filename = "TICTAC",float clock_speed = 500, float cl
 
 bool Engine::OnUserUpdate(float fElapsedTime)
 {
-	last_time_clock += fElapsedTime;
-	last_speed_clock += fElapsedTime;
-
-	setKey();
-
 	Clear(olc::DARK_BLUE);
 
+	setting.debugStatus = engine_setting.debugMode;
+	setting.gameName = engine_setting.gameName;
 
-	if (last_speed_clock > this->clock_speed) {
-		/*std::cout << "speed_clock = " << last_speed_clock << "\n";*/
-		interpreter->Cycle();
-		last_speed_clock = 0;
+	if (GetKey(olc::Key::BACK).bPressed) {
+		engine_setting.isPause ? engine_setting.isPause = false : engine_setting.isPause = true;
+		setting.index = 0;
 	}
 
-	if (last_time_clock > this->clock_time) {
-		/*std::cout << "time_clock = " << last_time_clock << "\n";*/
-		last_time_clock = 0;
-		if (interpreter->delayTimer > 0) {
-			--interpreter->delayTimer;
-		}
-		if (interpreter->soundTimer > 0) {
-			--interpreter->soundTimer;
-			ma_engine_play_sound(&engine_ma, "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\SOUND\\beep.mp3",NULL);
-		}
-	}
+	if (!engine_setting.isPause) {
 
-	int scale = engine_setting.debugMode ? 1 : 2;
+		last_time_clock += fElapsedTime;
+		last_speed_clock += fElapsedTime;
 
-	//debug mode
-	const float padx = 2;
-	const float pady = 2;
-	DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, (0 * scale) + pady), "CLOCK SPEED:" + std::to_string(engine_setting.clock_speed), olc::WHITE,olc::vd2d(0.4f,0.4f));
+		setKey();
+
+		if (last_speed_clock > this->clock_speed) {
+			/*std::cout << "speed_clock = " << last_speed_clock << "\n";*/
+			if (engine_setting.addr.size() <= 4) {
+				engine_setting.pc.push_front(interpreter->pc);
+				engine_setting.addr.push_front(interpreter->opcode);
+			}
+			else {
+				engine_setting.pc.pop_back();
+				engine_setting.addr.pop_back();
+			}
+			interpreter->Cycle();
+			last_speed_clock = 0;
+		}
+
+		if (last_time_clock > this->clock_time) {
+			/*std::cout << "time_clock = " << last_time_clock << "\n";*/
+			last_time_clock = 0;
+			if (interpreter->delayTimer > 0) {
+				--interpreter->delayTimer;
+			}
+			if (interpreter->soundTimer > 0) {
+				--interpreter->soundTimer;
+				ma_engine_play_sound(&engine_ma, "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\SOUND\\beep.mp3", NULL);
+			}
+		}
+
+		int scale = engine_setting.debugMode ? 1 : 2;
+
+		if (setting.debugStatus) {
+			//debug mode
+			const float padx = 2;
+			const float pady = 2;
+			DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, (0 * scale) + pady), "CLOCK SPEED:" + std::to_string(engine_setting.clock_speed), olc::WHITE, olc::vd2d(0.4f, 0.4f));
 
 #pragma region REGISTER
-	for (int i = 0; i < 16; i++) {
-		std::ostringstream ss;
-		ss << std::hex << i;
-		std::string result = ss.str();
-		std::string str = "R-";
-		str.append(result);
-		if (i < 8) {
-			DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * i + 4)), str.append(":") + intToHex(interpreter->regis[i]), olc::WHITE, olc::vd2d(0.3f, 0.3f));
-		}
-		else {
-			DrawStringDecal(olc::vd2d(((VIDEO_WIDTH * scale) + padx) + 30, ((0 * scale) + pady) + (4 * i + 4) - (4 * 8)), str.append(":") + intToHex(interpreter->regis[i]), olc::WHITE, olc::vd2d(0.3f, 0.3f));
-		}
-	}
-	DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * 8 + 4)), "DT:" + std::to_string(interpreter->delayTimer), olc::WHITE, olc::vd2d(0.3f, 0.3f));
-	DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx + 30, ((0 * scale) + pady) + (4 * 8 + 4)), "ST:" + std::to_string(interpreter->soundTimer), olc::WHITE, olc::vd2d(0.3f, 0.3f));
+			for (int i = 0; i < 16; i++) {
+				std::ostringstream ss;
+				ss << std::hex << i;
+				std::string result = ss.str();
+				std::string str = "R-";
+				str.append(result);
+				if (i < 8) {
+					DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * i + 4)), str.append(":") + intToHex(interpreter->regis[i]), olc::WHITE, olc::vd2d(0.3f, 0.3f));
+				}
+				else {
+					DrawStringDecal(olc::vd2d(((VIDEO_WIDTH * scale) + padx) + 30, ((0 * scale) + pady) + (4 * i + 4) - (4 * 8)), str.append(":") + intToHex(interpreter->regis[i]), olc::WHITE, olc::vd2d(0.3f, 0.3f));
+				}
+			}
+			DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * 8 + 4)), "DT:" + std::to_string(interpreter->delayTimer), olc::WHITE, olc::vd2d(0.3f, 0.3f));
+			DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx + 30, ((0 * scale) + pady) + (4 * 8 + 4)), "ST:" + std::to_string(interpreter->soundTimer), olc::WHITE, olc::vd2d(0.3f, 0.3f));
 #pragma endregion
 
+			for (int i = 0; i < (int)engine_setting.addr.size(); i++) {
+				std::string out = intToHex(engine_setting.pc.at(i) - 0x200, 3).append(":").append(intToHex(engine_setting.addr.at(i), 4));
+				olc::vd2d lenght = GetTextSize(out);
 
-	DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * (0 + 9) + 5)),  "S", olc::WHITE, olc::vd2d(0.3f, 0.3f));
-
-	//render to screen
-
-	//resize
-	int *temp = new int[(VIDEO_WIDTH * scale) * (VIDEO_HEIGHT * scale)];
-	double x_ratio = VIDEO_WIDTH / (double)(VIDEO_WIDTH * scale);
-	double y_ratio = VIDEO_HEIGHT / (double)(VIDEO_HEIGHT * scale);
-	double px, py;
-	for (int i = 0; i < (int)(VIDEO_HEIGHT * scale); i++) {
-		for (int j = 0; j < (int)(VIDEO_WIDTH * scale); j++) {
-			px = std::floor(j * x_ratio);
-			py = std::floor(i * y_ratio);
-			temp[(i * (VIDEO_WIDTH * scale)) + j] = video[(int)((py * VIDEO_WIDTH) + px)];
+				FillRect(olc::vd2d((VIDEO_WIDTH * scale) + padx - 1, ((0 * scale) + pady) + (4 * (0 + 9) + 5) - 1), olc::vd2d(lenght.x * 0.3f + 1, lenght.y * 0.3f + 2), olc::WHITE);
+				DrawStringDecal(olc::vd2d((VIDEO_WIDTH * scale) + padx, ((0 * scale) + pady) + (4 * (i + 9) + 5)), out, (i == 0) ? olc::DARK_BLUE : olc::WHITE, olc::vd2d(0.3f, 0.3f));
+			}
 		}
+		
+
+		//render to screen
+
+		//resize
+		int* temp = new int[(VIDEO_WIDTH * scale) * (VIDEO_HEIGHT * scale)];
+		double x_ratio = VIDEO_WIDTH / (double)(VIDEO_WIDTH * scale);
+		double y_ratio = VIDEO_HEIGHT / (double)(VIDEO_HEIGHT * scale);
+		double px, py;
+		for (int i = 0; i < (int)(VIDEO_HEIGHT * scale); i++) {
+			for (int j = 0; j < (int)(VIDEO_WIDTH * scale); j++) {
+				px = std::floor(j * x_ratio);
+				py = std::floor(i * y_ratio);
+				temp[(i * (VIDEO_WIDTH * scale)) + j] = video[(int)((py * VIDEO_WIDTH) + px)];
+			}
+		}
+
+		//draw
+		for (int y = 0; y < (int)(VIDEO_HEIGHT * scale); y++) {
+			for (int x = 0; x < (int)(VIDEO_WIDTH * scale); x++) {
+
+				int index = y * VIDEO_WIDTH * scale + x;
+				uint32_t pixel = temp[index];
+				Draw(olc::vd2d(x, y), pixel == 0x0 ? olc::BLACK : olc::WHITE);
+
+			}
+		}
+
+		delete[] temp;
 	}
 
-	//draw
-	for (int y = 0; y < (int)(VIDEO_HEIGHT * scale); y++) {
-		for (int x = 0; x < (int)(VIDEO_WIDTH * scale); x++) {
+	//Setting Menu
+	else {
+		int item = setting.menuList.size();
+		if (GetKey(olc::Key::UP).bPressed) {
+			if (setting.index > 0) {
+				setting.index--;
+			}
+		}
+		if (GetKey(olc::Key::DOWN).bPressed) {
+			if (setting.index < item - 1) {
+				setting.index++;
+			}
+		}
+		if (GetKey(olc::Key::ENTER).bPressed) {
+			switch (setting.index)
+			{
+			case 0:
+				engine_setting.isPause ? engine_setting.isPause = false : engine_setting.isPause = true;
+				engine_setting.debugMode ? engine_setting.debugMode = false : engine_setting.debugMode = true;
 
-			int index = y * VIDEO_WIDTH * scale + x;
-			uint32_t pixel = temp[index];
-			Draw(olc::vd2d(x, y), pixel == 0x0 ? olc::BLACK : olc::WHITE);
+			case 1:
+				engine_setting.debugMode ? engine_setting.debugMode = false : engine_setting.debugMode = true;
 
+			default:
+				break;
+			}
+		}
+
+
+		Clear(olc::DARK_BLUE);
+
+		float longX = 0;
+		float longY = 0;
+		for (int i = 0; i < (int)setting.menuList.size(); i++) {
+			std::string out = setting.menuList.at(i) + setting.getSubList(i);
+			if (GetTextSize(out).x > longX) {
+				longX = (float)GetTextSize(out).x;
+			}
+			longY += GetTextSize(out).y;
+		}
+
+		int index = setting.index;
+		std::string out = setting.menuList.at(index) + setting.getSubList(index);
+		float def = (longX - GetTextSize(out).x) / 4.0f;
+		FillRect(olc::vd2d(((ScreenWidth() / 2 - longX / 2 + 28) + def) - 0.5f, (ScreenHeight() / 2 + (0 + 5 * index) - longY / 2 + 5 ) - 0.5f), olc::vd2d((GetTextSize(out).x - (0.5f * GetTextSize(out).x)) + 1, (GetTextSize(out).y - 3.8f) + 1),olc::WHITE);
+
+		for (int i = 0; i < (int)setting.menuList.size(); i++) {
+			std::string out = setting.menuList.at(i) + setting.getSubList(i);
+			float def = (longX - GetTextSize(out).x)/4.0f;
+			DrawStringDecal(olc::vd2d((ScreenWidth() / 2 - longX / 2 + 28) + def, ScreenHeight() / 2 + (0 + 5 * i) - longY/2 + 5), out, i == index ? olc::DARK_BLUE : olc::WHITE, olc::vd2d(0.5f, 0.5f));
 		}
 	}
-
-	delete[] temp;
-
+	
 	return true;
 }
 
