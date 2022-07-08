@@ -624,7 +624,7 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 		float longX = 0;
 		float longY = 0;
 		{
-			for (int i = 0; i < 5 + 1; i++) {
+			for (int i = 0; i < 5; i++) {
 				
 				if (i == 0) {
 					for (int x = 0; x < 5; x++) {
@@ -645,16 +645,22 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 				std::string out = (index < romList.size()) ? romList.at(index) : "";
 				float center = (longX - GetTextSize(out).x)/4.0f;
 				float offsetx = 13;
-				DrawStringDecal(olc::vd2d(ScreenWidth()/2.0f - longX/2.0f + center + offsetx,ScreenHeight()/2 + (5 * i) - longY/4.0f), out , olc::WHITE, olc::vd2d(0.5f, 0.5f));
+				if (i == 5 - 1) {
+					FillRect(olc::vd2d(ScreenWidth() / 2.0f - longX / 2.0f + offsetx - 0.5f, (ScreenHeight() / 2 + (5 * setting.gameMenu.subIndex) - longY / 4.0f) - 0.5f), olc::vd2d(longX - (longX * 0.5f) + 1, 4.f + 1),olc::WHITE);
+				}
+				DrawStringDecal(olc::vd2d(ScreenWidth()/2.0f - longX/2.0f + center + offsetx,ScreenHeight()/2 + (5 * i) - longY/4.0f), out , toLowerCase(out) == toLowerCase(setting.gameMenu.gameName) ? olc::RED : setting.gameMenu.subIndex == i ? olc::DARK_BLUE : olc::WHITE, olc::vd2d(0.5f, 0.5f));
 			}
 		}
 
 		float scale = 4;
-		olc::vd2d top(ScreenWidth() / 2.0f + longX / 2.0f - 5, ScreenHeight() / 2 - longY / 4.0f);
-		FillTriangle((olc::vd2d(0.5, 0) *= scale) += top, (olc::vd2d(1, 1) *= scale) += top, (olc::vd2d(0, 1) *= scale) += top, olc::RED);
-
-		olc::vd2d buttom(ScreenWidth() / 2.0f + longX / 2.0f - 5, ScreenHeight()/2 + longY / 4.0f);
-		FillTriangle((olc::vd2d(0, 0) *= scale) += buttom, (olc::vd2d(1, 0) *= scale) += buttom, (olc::vd2d(0.5f, 1) *= scale) += buttom, olc::RED);
+		if (setting.gameMenu.index > 0) {
+			olc::vd2d top(ScreenWidth() / 2.0f + longX / 2.0f - 5, ScreenHeight() / 2 - longY / 4.0f);
+			FillTriangle((olc::vd2d(0.5, 0) *= scale) += top, (olc::vd2d(1, 1) *= scale) += top, (olc::vd2d(0, 1) *= scale) += top, olc::RED);
+		}
+		if (setting.gameMenu.index < maxIndex) {
+			olc::vd2d buttom(ScreenWidth() / 2.0f + longX / 2.0f - 5, ScreenHeight()/2 + longY / 4.0f);
+			FillTriangle((olc::vd2d(0, 0) *= scale) += buttom, (olc::vd2d(1, 0) *= scale) += buttom, (olc::vd2d(0.5f, 1) *= scale) += buttom, olc::RED);
+		}
 	}
 	
 	return true;
