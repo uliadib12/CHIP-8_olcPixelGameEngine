@@ -26,6 +26,7 @@ class SettingMenu
 		bool isgameMenu = false;
 		int index = 0;
 		int subIndex = 0;
+		int afterEnter = 0;
 
 		GameMenu() {};
 		~GameMenu() {};
@@ -65,7 +66,6 @@ class EngineSetting
 public:
 	bool isPause = false;
 	int clock_speed;
-	std::string gameName;
 	bool debugMode = false;
 	std::deque<uint16_t> pc;
 	std::deque<uint16_t> addr;
@@ -250,6 +250,7 @@ class Chip8
 	~Chip8();
 	void Cycle();
 	bool LoadROM();
+	bool LoadROM(std::string input);
 
 	std::default_random_engine randGen;
 	std::uniform_int_distribution<unsigned int> randByte;
@@ -345,9 +346,35 @@ Chip8::~Chip8()
 bool Chip8::LoadROM()
 {
 	std::string pathGame = "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\ROM\\";
-	pathGame.append(engine->engine_setting.gameName);
+	pathGame.append(engine->setting.gameMenu.gameName);
 	std::ifstream file(pathGame, std::ios::binary | std::ios::ate);
 	
+	if (file.is_open()) {
+		file.seekg(0, file.end);
+		std::streamoff size = file.tellg();
+		char* buffer = new char[(int)size];
+
+		file.seekg(0, file.beg);
+		file.read(buffer, size);
+		file.close();
+
+		for (int i = 0; i < size; ++i) {
+			memory[START_ADDRESS + i] = buffer[i];
+		}
+
+
+		delete[] buffer;
+		return true;
+	}
+	return false;
+}
+
+bool Chip8::LoadROM(std::string input)
+{
+	std::string pathGame = "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\ROM\\";
+	pathGame.append(input);
+	std::ifstream file(pathGame, std::ios::binary | std::ios::ate);
+
 	if (file.is_open()) {
 		file.seekg(0, file.end);
 		std::streamoff size = file.tellg();
@@ -373,9 +400,8 @@ Engine::Engine(const char* filename = "TICTAC",float clock_speed = 500, float cl
 	sAppName = "Chip-8 Emu";
 
 	engine_setting.clock_speed = (int)clock_speed;
-	engine_setting.gameName = filename;
+	setting.gameMenu.gameName = filename;
 	setting.debugStatus = engine_setting.debugMode;
-	setting.gameMenu.gameName = engine_setting.gameName;
 
 	this->clock_speed = 1.0f / clock_speed;
 	this->clock_time = 1.0f / clock_time;
@@ -410,15 +436,15 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 	Clear(olc::DARK_BLUE);
 
 	setting.debugStatus = engine_setting.debugMode;
-	setting.gameMenu.gameName = engine_setting.gameName;
 
 	if (GetKey(olc::Key::BACK).bPressed) {
 		engine_setting.isPause ? engine_setting.isPause = false : engine_setting.isPause = true;
 		setting.index = 0;
 		setting.gameMenu.isgameMenu = false;
+		setting.gameMenu.afterEnter = 0;
 	}
 
-	if (!engine_setting.isPause) {
+	if (!engine_setting.isPause && !setting.gameMenu.isgameMenu) {
 
 		last_time_clock += fElapsedTime;
 		last_speed_clock += fElapsedTime;
@@ -517,7 +543,7 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 	}
 
 	//Setting Menu
-	else {
+	if(engine_setting.isPause) {
 		int item = setting.menuList.size();
 		if (GetKey(olc::Key::UP).bPressed) {
 			if (setting.index > 0) {
@@ -660,6 +686,26 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 		if (setting.gameMenu.index < maxIndex) {
 			olc::vd2d buttom(ScreenWidth() / 2.0f + longX / 2.0f - 5, ScreenHeight()/2 + longY / 4.0f);
 			FillTriangle((olc::vd2d(0, 0) *= scale) += buttom, (olc::vd2d(1, 0) *= scale) += buttom, (olc::vd2d(0.5f, 1) *= scale) += buttom, olc::RED);
+		}
+
+		if (GetKey(olc::Key::ENTER).bReleased) {
+			setting.gameMenu.afterEnter = 1;
+		}
+
+		if (GetKey(olc::Key::ENTER).bPressed) {
+			int index = (setting.gameMenu.index * maxIndex) + setting.gameMenu.subIndex;
+			if (!(setting.gameMenu.gameName == romList.at(index)) && setting.gameMenu.afterEnter == 1) {
+				if (interpreter->LoadROM(romList.at(index))) {
+					memset(video, 0, sizeof(video));
+					memset(interpreter->regis, 0, sizeof(interpreter->regis));
+					memset(keypad, 0, sizeof(keypad));
+					setting.gameMenu.gameName = romList.at(index);
+					interpreter->pc = START_ADDRESS;
+					interpreter->delayTimer = 0;
+					interpreter->soundTimer = 0;
+					std::cout << "Change\n" << std::endl;
+				};
+			}
 		}
 	}
 	
