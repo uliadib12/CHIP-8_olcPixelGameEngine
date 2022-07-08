@@ -2,6 +2,7 @@
 #define OLC_PGE_APPLICATION
 #define MINIAUDIO_IMPLEMENTATION
 #include <iostream>
+#include <filesystem>
 #include <fstream>
 #include <chrono>
 #include <deque>
@@ -18,9 +19,21 @@ const unsigned int VIDEO_WIDTH = 64;
 
 class SettingMenu
 {
+	class GameMenu
+	{
+	public:
+		std::string gameName;
+		bool isgameMenu = false;
+		int index = 0;
+		int subIndex = 0;
+
+		GameMenu() {};
+		~GameMenu() {};
+	};
+
 public:
 	int index = 0;
-	std::string gameName;
+	GameMenu gameMenu;
 	bool debugStatus;
 	std::deque<std::string> menuList {"Resume","DEBUG MODE:","Game:"};
 	std::vector<std::vector<std::string>> subList{ 
@@ -34,7 +47,7 @@ public:
 		}
 		if (index == 2) {
 			std::string ret;
-			ret = gameName;
+			ret = gameMenu.gameName;
 			return ret;
 		}
 		return "";
@@ -71,6 +84,7 @@ class Engine : public olc::PixelGameEngine
 	Chip8* interpreter;
 	EngineSetting engine_setting;
 	SettingMenu setting;
+	std::vector<std::string> romList;
 	float last_speed_clock;
 	float last_time_clock;
 	float clock_time;
@@ -103,6 +117,20 @@ private:
 		hex.append(result);
 
 		return hex;
+	}
+
+	std::string toLowerCase(std::string input) {
+		std::string str = input;
+		int i = 0;
+		while (i < str.length())
+		{
+			if (isupper(str[i]))
+			{
+				str[i] = tolower(str[i]);
+			}
+			i++;
+		}
+		return str;
 	}
 };
 
@@ -347,10 +375,18 @@ Engine::Engine(const char* filename = "TICTAC",float clock_speed = 500, float cl
 	engine_setting.clock_speed = (int)clock_speed;
 	engine_setting.gameName = filename;
 	setting.debugStatus = engine_setting.debugMode;
-	setting.gameName = engine_setting.gameName;
+	setting.gameMenu.gameName = engine_setting.gameName;
 
 	this->clock_speed = 1.0f / clock_speed;
 	this->clock_time = 1.0f / clock_time;
+
+	namespace fs = std::experimental::filesystem;
+
+	std::string path = "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\ROM\\";
+
+	for (const auto& file : fs::directory_iterator(path)) {
+		romList.push_back(file.path().filename().string());
+	}
 
 	if (interpreter->LoadROM()) {
 		std::cout << "ROM OK\n";
@@ -374,11 +410,12 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 	Clear(olc::DARK_BLUE);
 
 	setting.debugStatus = engine_setting.debugMode;
-	setting.gameName = engine_setting.gameName;
+	setting.gameMenu.gameName = engine_setting.gameName;
 
 	if (GetKey(olc::Key::BACK).bPressed) {
 		engine_setting.isPause ? engine_setting.isPause = false : engine_setting.isPause = true;
 		setting.index = 0;
+		setting.gameMenu.isgameMenu = false;
 	}
 
 	if (!engine_setting.isPause) {
@@ -416,7 +453,7 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 
 		int scale = engine_setting.debugMode ? 1 : 2;
 
-		if (setting.debugStatus) {
+		if (setting.debugStatus && !setting.gameMenu.isgameMenu) {
 			//debug mode
 			const float padx = 2;
 			const float pady = 2;
@@ -497,10 +534,18 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 			{
 			case 0:
 				engine_setting.isPause ? engine_setting.isPause = false : engine_setting.isPause = true;
-				engine_setting.debugMode ? engine_setting.debugMode = false : engine_setting.debugMode = true;
+				break;
 
 			case 1:
 				engine_setting.debugMode ? engine_setting.debugMode = false : engine_setting.debugMode = true;
+				break;
+			
+			case 2:
+				engine_setting.isPause ? engine_setting.isPause = false : engine_setting.isPause = true;
+				setting.gameMenu.isgameMenu ? setting.gameMenu.isgameMenu = false : setting.gameMenu.isgameMenu = true;
+				setting.gameMenu.index = 0;
+				setting.gameMenu.subIndex = 0;
+				break;
 
 			default:
 				break;
@@ -523,13 +568,93 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 		int index = setting.index;
 		std::string out = setting.menuList.at(index) + setting.getSubList(index);
 		float def = (longX - GetTextSize(out).x) / 4.0f;
-		FillRect(olc::vd2d(((ScreenWidth() / 2 - longX / 2 + 28) + def) - 0.5f, (ScreenHeight() / 2 + (0 + 5 * index) - longY / 2 + 5 ) - 0.5f), olc::vd2d((GetTextSize(out).x - (0.5f * GetTextSize(out).x)) + 1, (GetTextSize(out).y - 3.8f) + 1),olc::WHITE);
+		FillRect(olc::vd2d(((ScreenWidth() / 2 - longX / 2 + 28) + def) - 0.5f, (ScreenHeight() / 2 + (0 + 5 * index) - longY / 4) - 0.5f), olc::vd2d((GetTextSize(out).x - (0.5f * GetTextSize(out).x)) + 1, (GetTextSize(out).y - 3.8f) + 1),olc::WHITE);
 
 		for (int i = 0; i < (int)setting.menuList.size(); i++) {
 			std::string out = setting.menuList.at(i) + setting.getSubList(i);
 			float def = (longX - GetTextSize(out).x)/4.0f;
-			DrawStringDecal(olc::vd2d((ScreenWidth() / 2 - longX / 2 + 28) + def, ScreenHeight() / 2 + (0 + 5 * i) - longY/2 + 5), out, i == index ? olc::DARK_BLUE : olc::WHITE, olc::vd2d(0.5f, 0.5f));
+			DrawStringDecal(olc::vd2d((ScreenWidth() / 2 - longX / 2 + 28) + def, (ScreenHeight() / 2 + (0 + 5 * i)) - longY/4), out, i == index ? olc::DARK_BLUE : olc::WHITE, olc::vd2d(0.5f, 0.5f));
 		}
+	}
+
+	if (setting.gameMenu.isgameMenu) {
+		Clear(olc::DARK_BLUE);
+
+		int maxIndex = std::ceil((float)romList.size() / 5.0f) - 1;
+		int maxSubIndex;
+
+		if ((romList.size() % 5 == 0)) {
+			maxSubIndex = 5 - 1;
+		}
+		else {
+			maxSubIndex = 5 - 1;
+			if (setting.gameMenu.index == maxIndex) {
+				maxSubIndex = (romList.size() % 5) - 1;
+			}
+		}
+
+		if (GetKey(olc::Key::UP).bPressed) {
+			if (setting.gameMenu.subIndex > 0) {
+				setting.gameMenu.subIndex--;
+			}
+			else {
+				if (setting.gameMenu.index > 0) {
+					setting.gameMenu.index--;
+					setting.gameMenu.subIndex = 5 - 1;
+				}
+			}
+			std::cout << "INDEX" << setting.gameMenu.index << std::endl;
+			std::cout << "SUBINDEX" << setting.gameMenu.subIndex << std::endl;
+		}
+
+		if (GetKey(olc::Key::DOWN).bPressed) {
+			if (setting.gameMenu.subIndex < maxSubIndex) {
+				setting.gameMenu.subIndex++;
+			}
+			else {
+				if (setting.gameMenu.index < maxIndex) {
+					setting.gameMenu.index++;
+					setting.gameMenu.subIndex = 0;
+				}
+			}
+			std::cout << "INDEX" << setting.gameMenu.index << std::endl;
+			std::cout << "SUBINDEX" << setting.gameMenu.subIndex << std::endl;
+		}
+
+		float longX = 0;
+		float longY = 0;
+		{
+			for (int i = 0; i < 5 + 1; i++) {
+				
+				if (i == 0) {
+					for (int x = 0; x < 5; x++) {
+						int index = (setting.gameMenu.index * maxIndex) + x;
+						std::string out = (index < romList.size()) ? romList.at(index) : "";
+						olc::vd2d size = GetTextSize(out);
+						if ((float)size.x > longX) longX = (float)size.x;
+					}
+					for (int y = 0; y < 5; y++) {
+						int index = (setting.gameMenu.index * maxIndex) + y;
+						std::string out = (index < romList.size()) ? romList.at(index) : "";
+						olc::vd2d size = GetTextSize(out);
+						longY += (float)size.y;
+					}
+				}
+
+				int index = (setting.gameMenu.index * maxIndex) + i;
+				std::string out = (index < romList.size()) ? romList.at(index) : "";
+				float center = (longX - GetTextSize(out).x)/4.0f;
+				float offsetx = 13;
+				DrawStringDecal(olc::vd2d(ScreenWidth()/2.0f - longX/2.0f + center + offsetx,ScreenHeight()/2 + (5 * i) - longY/4.0f), out , olc::WHITE, olc::vd2d(0.5f, 0.5f));
+			}
+		}
+
+		float scale = 4;
+		olc::vd2d top(ScreenWidth() / 2.0f + longX / 2.0f - 5, ScreenHeight() / 2 - longY / 4.0f);
+		FillTriangle((olc::vd2d(0.5, 0) *= scale) += top, (olc::vd2d(1, 1) *= scale) += top, (olc::vd2d(0, 1) *= scale) += top, olc::RED);
+
+		olc::vd2d buttom(ScreenWidth() / 2.0f + longX / 2.0f - 5, ScreenHeight()/2 + longY / 4.0f);
+		FillTriangle((olc::vd2d(0, 0) *= scale) += buttom, (olc::vd2d(1, 0) *= scale) += buttom, (olc::vd2d(0.5f, 1) *= scale) += buttom, olc::RED);
 	}
 	
 	return true;
