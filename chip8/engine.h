@@ -345,7 +345,7 @@ Chip8::~Chip8()
 
 bool Chip8::LoadROM()
 {
-	std::string pathGame = "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\ROM\\";
+	std::string pathGame = ".\\ROM\\";
 	pathGame.append(engine->setting.gameMenu.gameName);
 	std::ifstream file(pathGame, std::ios::binary | std::ios::ate);
 	
@@ -371,7 +371,7 @@ bool Chip8::LoadROM()
 
 bool Chip8::LoadROM(std::string input)
 {
-	std::string pathGame = "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\ROM\\";
+	std::string pathGame = ".\\ROM\\";
 	pathGame.append(input);
 	std::ifstream file(pathGame, std::ios::binary | std::ios::ate);
 
@@ -408,7 +408,7 @@ Engine::Engine(const char* filename = "TICTAC",float clock_speed = 500, float cl
 
 	namespace fs = std::experimental::filesystem;
 
-	std::string path = "C:\\Users\\ACER\\source\\repos\\CHIP-8\\chip8\\Debug\\ROM\\";
+	std::string path = ".\\ROM\\";
 
 	for (const auto& file : fs::directory_iterator(path)) {
 		romList.push_back(file.path().filename().string());
@@ -629,8 +629,8 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 					setting.gameMenu.subIndex = 5 - 1;
 				}
 			}
-			std::cout << "INDEX" << setting.gameMenu.index << std::endl;
-			std::cout << "SUBINDEX" << setting.gameMenu.subIndex << std::endl;
+			/*std::cout << "INDEX" << setting.gameMenu.index << std::endl;
+			std::cout << "SUBINDEX" << setting.gameMenu.subIndex << std::endl;*/
 		}
 
 		if (GetKey(olc::Key::DOWN).bPressed) {
