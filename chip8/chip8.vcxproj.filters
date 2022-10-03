@@ -15,13 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="lib\olcPixelGameEngine.h">
+    <ClInclude Include="lib\olcPixelGameEngine.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="engine.h">
+    <ClInclude Include="engine.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="lib\miniaudio.h">
+    <ClInclude Include="lib\miniaudio.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

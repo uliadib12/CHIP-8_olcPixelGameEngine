@@ -162,9 +162,9 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="engine.h" />
-    <ClInclude Include="lib\miniaudio.h" />
-    <ClInclude Include="lib\olcPixelGameEngine.h" />
+    <ClInclude Include="engine.hpp" />
+    <ClInclude Include="lib\miniaudio.hpp" />
+    <ClInclude Include="lib\olcPixelGameEngine.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

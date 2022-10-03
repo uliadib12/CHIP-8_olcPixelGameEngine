@@ -9,8 +9,8 @@
 #include <vector>
 #include <random>
 #include <math.h>
-#include <lib/olcPixelGameEngine.h>
-#include <lib/miniaudio.h>
+#include <lib/olcPixelGameEngine.hpp>
+#include <lib/miniaudio.hpp>
 
 const unsigned int START_ADDRESS = 0x200;
 const unsigned int FONTSET_START_ADDRESS = 0x50;
@@ -643,8 +643,8 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 					setting.gameMenu.subIndex = 0;
 				}
 			}
-			std::cout << "INDEX" << setting.gameMenu.index << std::endl;
-			std::cout << "SUBINDEX" << setting.gameMenu.subIndex << std::endl;
+			/*std::cout << "INDEX" << setting.gameMenu.index << std::endl;
+			std::cout << "SUBINDEX" << setting.gameMenu.subIndex << std::endl;*/
 		}
 
 		float longX = 0;
@@ -703,7 +703,7 @@ bool Engine::OnUserUpdate(float fElapsedTime)
 					interpreter->pc = START_ADDRESS;
 					interpreter->delayTimer = 0;
 					interpreter->soundTimer = 0;
-					std::cout << "Change\n" << std::endl;
+					/*std::cout << "Change\n" << std::endl;*/
 				};
 			}
 		}
